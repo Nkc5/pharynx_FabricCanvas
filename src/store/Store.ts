@@ -6,6 +6,10 @@ import { MenuOption, EditorElement, Animation, TimeFrame, VideoEditorElement, Au
 import { FabricUitls } from '@/utils/fabric-utils';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { toBlobURL } from '@ffmpeg/util';
+import { useState } from 'react';
+
+
+
 
 export class Store {
   canvas: fabric.Canvas | null
@@ -30,6 +34,11 @@ export class Store {
 
   possibleVideoFormats: string[] = ['mp4', 'webm'];
   selectedVideoFormat: 'mp4' | 'webm';
+  index: number | null;
+  cropRect: fabric.Rect | null;
+  activeObject: any;
+  cropTrigger: boolean;
+  gallery: boolean;
 
   constructor() {
     this.canvas = null;
@@ -48,8 +57,310 @@ export class Store {
     this.animationTimeLine = anime.timeline();
     this.selectedMenuOption = 'Image';
     this.selectedVideoFormat = 'mp4';
+    this.index = null;
+    this.cropRect = null;
+    this.activeObject = null;
+    this.cropTrigger = false;
+    this.gallery = false;
+
     makeAutoObservable(this);
   }
+
+
+
+
+
+
+  setGallery(bool:boolean){
+    this.gallery = bool;
+  }
+
+  getGallery(){
+    return this.gallery;
+  }
+
+
+  triggerCrop = () => {
+    this.cropTrigger = !this.cropTrigger;
+  };
+
+  getCropTrigger() {
+    return this.cropTrigger;
+  }
+
+
+
+
+
+
+
+  setActiveObject(obj = null) {
+    if (!obj) return this.activeObject;
+    this.activeObject = obj;
+  }
+
+
+
+  setCropRect(rect) {
+    this.cropRect = rect;
+  }
+
+  getCroptRect() {
+    return this.cropRect;
+  }
+
+
+
+
+
+
+
+  storeIndex(index: any) {
+    this.index = index;
+  }
+
+  getIndex() {
+    return this.index;
+  }
+
+  handleDownload = () => {
+    // const canvas = store.getCanvas(); // Access canvas from store
+    if (!this.canvas) return alert("please select canva size");;
+
+    const imageUrl = this.canvas.toDataURL({
+      format: "png", // You can change format (e.g., jpeg)
+      multiplier: 1, // Adjust multiplier for higher resolution
+    });
+
+    // Create an anchor element to trigger the download
+    const link = document.createElement("a");
+    link.href = imageUrl;
+    link.download = "canvas_image.png"; // Set download file name
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link); // Clean up
+  };
+
+
+
+
+  constrainRectangle = (rect: fabric.Rect, canvas: fabric.Canvas) => {
+    const canvasWidth = canvas.getWidth();
+    const canvasHeight = canvas.getHeight();
+
+    // Ensure the rectangle stays within canvas boundaries
+    const constrainedLeft = Math.max(
+      0,
+      Math.min(rect.left ?? 0, canvasWidth - (rect.width ?? 0))
+    );
+    const constrainedTop = Math.max(
+      0,
+      Math.min(rect.top ?? 0, canvasHeight - (rect.height ?? 0))
+    );
+
+    rect.set({
+      left: constrainedLeft,
+      top: constrainedTop,
+    });
+
+    // Ensure the width and height do not exceed the canvas boundaries
+    const constrainedWidth = Math.min(
+      rect.width ?? 0,
+      canvasWidth - constrainedLeft
+    );
+    const constrainedHeight = Math.min(
+      rect.height ?? 0,
+      canvasHeight - constrainedTop
+    );
+
+    rect.set({
+      width: constrainedWidth,
+      height: constrainedHeight,
+    });
+  };
+
+
+
+
+  handleCrop = () => {
+    const canvas = this.getCanvas();
+    const activeObject = this.setActiveObject()
+
+    console.log("activeObject", activeObject);
+
+    if (!canvas || !activeObject) return alert("please select canva size");;
+
+    if (this.getCroptRect()) {
+
+      // Apply the crop
+      this.constrainRectangle(this.getCroptRect(), canvas);
+
+      // Draw the crop rectangle
+      canvas.renderAll();
+
+      const img = activeObject;
+      const imgElement = img.getElement();
+
+      // Ensure image scaling factors are defined
+      const scaleX = img.scaleX ?? 1;
+      const scaleY = img.scaleY ?? 1;
+
+      // Get crop rectangle bounding box
+      const {
+        left: rectLeft,
+        top: rectTop,
+        width: rectWidth,
+        height: rectHeight,
+      } = this.getCroptRect().getBoundingRect();
+
+      // Calculate image position and scale
+      const imgLeft = img.left ?? 0;
+      const imgTop = img.top ?? 0;
+
+      // Calculate scaled crop dimensions
+      const scaledLeft = (rectLeft - imgLeft) / scaleX;
+      const scaledTop = (rectTop - imgTop) / scaleY;
+      const scaledWidth = rectWidth / scaleX;
+      const scaledHeight = rectHeight / scaleY;
+
+      // Create a temporary canvas for cropping
+      const tempCanvas = document.createElement("canvas");
+      const tempCtx = tempCanvas.getContext("2d");
+      if (!tempCtx) return;
+
+      // Set temporary canvas size
+      tempCanvas.width = scaledWidth;
+      tempCanvas.height = scaledHeight;
+
+      // Draw the cropped portion of the image onto the temporary canvas
+      tempCtx.drawImage(
+        imgElement,
+        scaledLeft,
+        scaledTop,
+        scaledWidth,
+        scaledHeight,
+        0,
+        0,
+        scaledWidth,
+        scaledHeight
+      );
+
+      // Create a data URL for the cropped image
+      const croppedImageDataUrl = tempCanvas.toDataURL("image/png");
+      this.setAddNewImages(croppedImageDataUrl);
+
+      // Create a new fabric image from the cropped data
+      fabric.Image.fromURL(croppedImageDataUrl, (croppedImg) => {
+        canvas.clear(); // Clear existing canvas
+
+        // Set properties for the cropped image
+        croppedImg.set({
+          left: 0,
+          top: 0,
+          angle: 0,
+          padding: 10,
+          cornerSize: 10,
+        });
+
+        // Add the cropped image to the canvas
+        canvas.add(croppedImg);
+        canvas.renderAll();
+      });
+
+      // Clear the crop rectangle
+      this.setCropRect(null);
+      canvas.remove(this.getCroptRect());
+    } else {
+      // Create and add crop rectangle
+      const rect = new fabric.Rect({
+        left: 50,
+        top: 50,
+        width: 100,
+        height: 100,
+        fill: "rgba(255, 0, 0, 0.3)", // More visible fill
+        stroke: "red", // Visible stroke
+        strokeWidth: 2,
+        hasControls: true, // Allow resizing and moving
+        selectable: true, // Allow selection
+      });
+
+      // Add the rectangle to the canvas
+      canvas.add(rect);
+      canvas.setActiveObject(rect);
+      canvas.renderAll(); // Re-render to ensure rectangle appears
+      this.setCropRect(rect); // Store reference to the crop rectangle
+
+      // Ensure the rectangle stays within bounds
+      this.constrainRectangle(rect, canvas);
+
+      // Add event listeners for modification
+      canvas.on("object:modified", (e) => {
+        if (e.target === rect) {
+          this.setCropRect(e.target as fabric.Rect);
+        }
+      });
+
+      // Optional: disable selection while cropping
+      canvas.on("mouse:down", (e) => {
+        if (e.target === rect) {
+          canvas.selection = false;
+        }
+      });
+    }
+  };
+
+
+
+handleAddText = () => {
+  if (!this.canvas) return alert("Please select a canvas size");
+
+  // Prompt the user to enter the text
+  const text = prompt("Enter the text to add:");
+  if (!text) return;
+
+  // Create a new Text object
+  const textObj = new fabric.Text(text, {
+    left: 100, // Initial position on the canvas
+    top: 100,
+    fontSize: 20,
+    fill: "black",
+    fontFamily: "Arial",
+    selectable: true,
+    hasControls: true,
+    hasBorders: true,
+  });
+
+  // Add the Text object to the canvas
+  this.canvas.add(textObj);
+  this.canvas.setActiveObject(textObj);
+  this.canvas.renderAll();
+
+  // Function to save canvas as an image
+  const saveCanvasAsImage = () => {
+    if (this.canvas) {
+      this.canvas.renderAll();
+      const imageWithText = this.canvas.toDataURL({
+        format: 'png',
+        quality: 1.0,
+        multiplier: this.canvas.getZoom()
+      });
+      this.setAddNewImages(imageWithText); // Save the updated image
+    }
+  };
+
+  // Save the initial state immediately
+  saveCanvasAsImage();
+
+  // Listen for object modifications
+  this.canvas.on('object:modified', () => {
+    // Debounce to ensure rendering is complete
+    setTimeout(() => {
+      saveCanvasAsImage();
+    }, 100); // Adjust the delay if necessary
+  });
+};
+
+
 
 
   setAddNewImages(imageDataUrl: string) {
@@ -122,21 +433,9 @@ export class Store {
   }
   addImageResource(image: string) {
     this.images = [image];
-
-
-    // modified code
-
-    if (this.canvas) {
-      fabric.Image.fromURL(image, (img) => {
-        this.canvas?.clear(); // Clear the canvas if needed
-        this.canvas?.add(img); // Add the new image to the canvas
-        this.canvas?.renderAll(); // Render the canvas with the new image
-      });
-    }
-    
   }
 
-  getImages(){
+  getImages() {
     return this.images;
   }
 

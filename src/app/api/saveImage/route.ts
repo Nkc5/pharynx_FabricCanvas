@@ -82,3 +82,55 @@ export async function GET(req: NextRequest){
     return NextResponse.json(user);
  }
 
+
+
+ 
+ 
+
+
+export async function DELETE(req: NextRequest) {
+  try {
+    // Extract query parameters
+    const url = new URL(req.url);
+    const imageToDelete = url.searchParams.get('image');
+    
+    if (!imageToDelete) {
+      return NextResponse.json({ error: 'Image parameter is required' }, { status: 400 });
+    }
+
+    // Assuming you have a user ID available, replace with your method of obtaining the user ID
+    const userId = '66d6f3862eda2500c745a1ec';
+
+    // Fetch the user to get the existing images
+    const user = await prisma.users.findUnique({
+      where: { id: userId },
+      select: { image: true }, // Only select the `image` field to reduce query size
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // Check if `user.image` is an array
+    const userImages = Array.isArray(user.image) ? user.image : [];
+
+    // Filter out the image to be deleted
+    const updatedImages = userImages.filter(img => img !== imageToDelete);
+
+    // Ensure that an image is actually removed
+    if (userImages.length === updatedImages.length) {
+      return NextResponse.json({ error: 'Image not found in user images' }, { status: 404 });
+    }
+
+    // Update the user record with the new list of images
+    const updatedUser = await prisma.users.update({
+      where: { id: userId },
+      data: { image: updatedImages },
+    });
+
+    return NextResponse.json(updatedUser);
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
+}

@@ -18,19 +18,40 @@ export const EditorWithStore = () => {
       <Editor></Editor>
     </StoreContext.Provider>
   );
-}
+};
 
 export const Editor = observer(() => {
+
   const store = React.useContext(StoreContext);
   const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
   const [cropRect, setCropRect] = useState<fabric.Rect | null>(null);
+  const [canvasSize, setCanvasSize] = useState<{
+    width: number;
+    height: number;
+  } | null>(null);
 
+  
+  const sizes = [
+    { width: 400, height: 300, label: "Small" },
+    { width: 600, height: 400, label: "Medium" },
+    { width: 800, height: 550, label: "Large" },
+    { width: 900, height: 550, label: "XL" },
+  ];
 
   useEffect(() => {
+    if (!canvasSize) return;
+
+    // Remove the old canvas if it exists
+    if (fabricCanvasRef.current) {
+      fabricCanvasRef.current.dispose();
+    }
+
     const canvas = new fabric.Canvas("canvas", {
-      height: 500,
-      width: 600,
-      backgroundColor: "#ededed",
+      height: canvasSize.height,
+      width: canvasSize.width,
+      backgroundColor: "#ffffff",
+      preserveObjectStacking: true,
+
     });
     fabric.Object.prototype.transparentCorners = false;
     fabric.Object.prototype.cornerColor = "#00a0f5";
@@ -51,47 +72,61 @@ export const Editor = observer(() => {
       fabric.util.requestAnimFrame(render);
     });
 
-
-  }, []);
-
-
+    
+    // Clean up when the component is unmounted or size changes
+    return () => {
+      if (fabricCanvasRef.current) {
+        fabricCanvasRef.current.dispose();
+      }
+    };
+  }, [canvasSize]);
 
   const removeSelectedImage = () => {
-    if (store.canvas) {
-      const activeObject = store.canvas.getActiveObject(); // Get the currently selected object
-      console.log("Active Object:", activeObject);
-      console.log("Canvas objects:", store.canvas.getObjects())
-      
-      if (activeObject && activeObject.type === 'image') {
-        store.canvas.remove(activeObject); // Remove the image from the canvas
-        store.canvas.discardActiveObject(); // Deselect the object
-        store.canvas.renderAll(); // Re-render the canvas to reflect changes
-      } else {
-        console.log("No image selected or the selected object is not an image.");
-      }
-    } else {
-      console.log("Canvas is not initialized.");
-    }
+    const canvas = store.getCanvas();
+    store.setCropRect(null);
+    canvas?.clear();
   };
-  
 
-
-
+  const handleSizeChange = (size: { width: number; height: number }) => {
+    setCanvasSize(size);
+  };
 
   return (
-    <div className="grid grid-rows-[500px_1fr] grid-cols-[72px_250px_1fr] h-[100svh] overflow-hidden">
-
+    <div className="grid grid-rows-[500px_1fr] grid-cols-[80px_250px_1fr] h-[100svh] overflow-hidden">
       <div className="tile row-span-2 flex flex-col">
         <Menu />
       </div>
       <div className="row-span-2 flex flex-col overflow-scroll">
-        <Resources  />
+        <Resources />
       </div>
-      <div id="grid-canvas-container" className="col-start-3  bg-slate-100 flex justify-center items-center h-screen">
-        <canvas id="canvas"  />
-        <button onClick={removeSelectedImage} className="text-white bg-red-500 hover:bg-red-700 px-4 py-2 rounded ms-2 mb-2">remove</button>
+
+      <div
+        id="grid-canvas-container"
+        className="col-start-3 mt-0 bg-slate-100 flex flex-col justify-start h-screen "
+      >
+        
+          <p className="text-center">Select Editor</p>
+        <div className="flex  items-center justify-center gap-10 my-3">
+          {sizes.map((size) => (
+            <button
+              key={size.label}
+              onClick={() => handleSizeChange(size)}
+              className="mx-2 text-white bg-blue-500 hover:bg-blue-700 px-4 py-2 rounded"
+            >
+              {size.label}
+            </button>
+          ))}
+        </div>
+
+        <canvas id="canvas" className="ml-5 pl-5"/>
       </div>
-       {/* <div className="col-start-4 row-start-1"> 
+      <button
+        onClick={removeSelectedImage}
+        className="text-white bg-red-500 hover:bg-red-700 px-4 py-2 rounded mb-2 ms-2 h-10 w-20"
+      >
+        remove
+      </button>
+      {/* <div className="col-start-4 row-start-1"> 
         <ElementsPanel />
       </div>  */}
       {/* <div className="col-start-3 row-start-2 col-span-2 relative px-[10px] py-[4px] overflow-scroll">
@@ -100,7 +135,6 @@ export const Editor = observer(() => {
       <div className="col-span-4 text-right px-2 text-[0.5em] bg-black text-white">
         Crafted By Amit Digga
       </div>
-
     </div>
   );
 });

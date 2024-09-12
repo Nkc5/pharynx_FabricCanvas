@@ -1,5 +1,5 @@
 "use client";
-import React from "react";
+import React, { useState } from "react";
 import { StoreContext } from "@/store";
 import { observer } from "mobx-react";
 import {
@@ -14,8 +14,20 @@ import {
 } from "react-icons/md";
 import { Store } from "@/store/Store";
 
+
+
+
+
 export const Menu = observer(() => {
   const store = React.useContext(StoreContext);
+
+
+const [bool, setBool] = useState(false);
+function viewGallery(){
+  setBool(!bool);
+  store.setGallery(!bool);
+}
+
 
   return (
     <ul className="bg-white h-full">
@@ -24,20 +36,19 @@ export const Menu = observer(() => {
         return (
           <li
             key={option.name}
-            className={`h-[72px] w-[72px] flex flex-col items-center justify-center ${isSelected ? "bg-slate-200" : ""}`}
+            className={`h-[72px] w-[72px] flex flex-col items-center justify-center ${
+              isSelected ? "bg-slate-200" : ""
+            }`}
           >
             <button
               onClick={() => option.action(store)}
               className={`flex flex-col items-center`}
             >
-              <option.icon
-                size="20"
-                color={
-                  isSelected ? "#000" : "#444"
-                }
-              />
+              <option.icon size="20" color={isSelected ? "#000" : "#444"} />
               <div
-                className={`text-[0.6rem] hover:text-black ${isSelected ? "text-black" : "text-slate-600"}`}
+                className={`text-[0.6rem] hover:text-black ${
+                  isSelected ? "text-black" : "text-slate-600"
+                }`}
               >
                 {option.name}
               </div>
@@ -45,25 +56,24 @@ export const Menu = observer(() => {
           </li>
         );
       })}
+
+      <div className="flex flex-col mt-4 pt-5">
+      
+        <button  className="text-white bg-blue-500 hover:bg-blue-700 px-1 py-2 rounded mb-2" onClick={store.handleCrop}>{store.getCroptRect() ? "Apply Crop" : "Crop"}</button> <br />
+        <button  className="text-white bg-blue-500 hover:bg-blue-700 px-1 py-2 rounded mb-2" onClick={store.handleAddText}>Text</button> <br />
+        <button  className="text-white bg-blue-500 hover:bg-blue-700 px-1 py-2 rounded mb-2" onClick={store.handleDownload}>Download</button>
+
+        <button  className="text-white bg-blue-500 hover:bg-blue-700 px-1 py-2 rounded mt-3" onClick={viewGallery}>{bool ?  "hide Gallery": "view Gallery"}</button>
+
+      </div>
+
+
+
     </ul>
   );
 });
 
 const MENU_OPTIONS = [
-  // {
-  //   name: "Video",
-  //   icon: MdVideoLibrary,
-  //   action: (store: Store) => {
-  //     store.setSelectedMenuOption("Video");
-  //   },
-  // },
-  // {
-  //   name: "Audio",
-  //   icon: MdAudiotrack,
-  //   action: (store: Store) => {
-  //     store.setSelectedMenuOption("Audio");
-  //   },
-  // },
   {
     name: "Image",
     icon: MdImage,
@@ -71,39 +81,5 @@ const MENU_OPTIONS = [
       store.setSelectedMenuOption("Image");
     },
   },
-  // {
-  //   name: "Text",
-  //   icon: MdTitle,
-  //   action: (store: Store) => {
-  //     store.setSelectedMenuOption("Text");
-  //   },
-  // },
-  // {
-  //   name: "Animation",
-  //   icon: MdTransform,
-  //   action: (store: Store) => {
-  //     store.setSelectedMenuOption("Animation");
-  //   },
-  // },
-  // {
-  //   name: "Effect",
-  //   icon: MdMovieFilter,
-  //   action: (store: Store) => {
-  //     store.setSelectedMenuOption("Effect");
-  //   },
-  // },
-  // {
-  //   name: "Fill",
-  //   icon: MdOutlineFormatColorFill,
-  //   action: (store: Store) => {
-  //     store.setSelectedMenuOption("Fill");
-  //   },
-  // },
-  // {
-  //   name: "Export",
-  //   icon: MdDownload,
-  //   action: (store: Store) => {
-  //     store.setSelectedMenuOption("Export");
-  //   },
-  // },
+ 
 ];
